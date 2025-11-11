@@ -58,12 +58,26 @@ public class DocumentComparisonController {
             File resultFile = new File(outputFilePath);
             InputStreamResource resource = new InputStreamResource(new FileInputStream(resultFile));
             HttpHeaders headers = new HttpHeaders();
-            headers.add("Content-Disposition", "attachment; filename=对比结果." + format.toLowerCase());
+
+            // 根据不同格式设置不同的Content-Type
+            MediaType mediaType;
+            if (format.equalsIgnoreCase("PDF")) {
+                mediaType = MediaType.APPLICATION_PDF;
+            } else if (format.equalsIgnoreCase("HTML")) {
+                mediaType = MediaType.TEXT_HTML;
+            } else if (format.equalsIgnoreCase("DOCX")) {
+                mediaType = MediaType.valueOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            } else {
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+
+            // 设置为内联显示而非附件下载
+            headers.add("Content-Disposition", "inline; filename=comparison_result." + format.toLowerCase());
 
             return ResponseEntity.ok()
                     .headers(headers)
                     .contentLength(resultFile.length())
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(mediaType)
                     .body(resource);
         } catch (Exception e) {
             return ResponseEntity.status(500).body("比较文档时出错: " + e.getMessage());

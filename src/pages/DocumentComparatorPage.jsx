@@ -58,9 +58,9 @@ const DocumentComparatorPage = () => {
       message.error('请上传两个文档文件');
       return;
     }
-
+  
     setLoading(true);
-
+  
     try {
       // 构建FormData
       const formData = new FormData();
@@ -77,26 +77,20 @@ const DocumentComparatorPage = () => {
         ignoreTextboxes: values.ignoreTextboxes,
         ignoreFootnotes: values.ignoreFootnotes
       }));
-
+  
       // 发送请求
       const response = await axios.post('/api/compare', formData, {
         responseType: 'blob'
       });
-
-      // 处理响应，下载文件
-      const blob = new Blob([response.data], {
-        type: response.headers['content-type']
-      });
+  
+      // 处理响应，在新标签页打开文件
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `comparison_result.${values.format.toLowerCase()}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      message.success('文档比较完成，文件已下载');
+      
+      // 在新标签页打开文件
+      window.open(url, '_blank');
+      
+      message.success('文档比较完成，结果已在新标签页打开');
     } catch (error) {
       console.error('比较文档时出错:', error);
       message.error('比较文档时出错，请重试');

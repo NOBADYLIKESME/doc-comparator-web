@@ -25,7 +25,7 @@ const AboutPage = () => {
       <Card>
         <Title level={4}>功能说明</Title>
         <Paragraph>
-          文档比较工具基于Aspose.Words Java库开发，具有以下核心功能：
+          本文档比较工具有以下核心功能：
         </Paragraph>
         <ul>
           <li>精确的文档内容比较</li>
@@ -72,7 +72,7 @@ const AboutPage = () => {
           <li>处理大型文档可能需要较长时间，请耐心等待</li>
           <li>比较结果会高亮显示文档间的差异</li>
           <li>生成的文件会在24小时后自动清理</li>
-          <li>如有任何问题，请联系技术支持</li>
+          <li>如有任何问题，请联系产品处刘瑞</li>
         </ul>
       </Card>
     </div>
