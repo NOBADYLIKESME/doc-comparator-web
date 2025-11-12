@@ -21,7 +21,7 @@
 
 /* 文档比较页面样式 */
 .document-comparator-page {
-  max-width: 800px;
+  max-width: 80%;
   margin: 0 auto;
   padding: 24px;
 }
