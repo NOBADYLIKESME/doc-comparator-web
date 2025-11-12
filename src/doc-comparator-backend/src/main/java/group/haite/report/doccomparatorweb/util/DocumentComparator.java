@@ -1,9 +1,14 @@
 package group.haite.report.doccomparatorweb.util;
 
 import com.aspose.words.*;
-import java.io.File;
 import java.util.Date;
 
+
+/**
+ * 文档比较工具类
+ * 提供文档比较功能，支持HTML、PDF、DOCX格式
+ * @author ryan
+ */
 public class DocumentComparator {
     
     /**

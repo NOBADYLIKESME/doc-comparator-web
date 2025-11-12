@@ -535,14 +535,18 @@ const DocumentComparatorPage = () => {
             <h3 style={{ margin: 0 }}>文档预览</h3>
             <Button 
               type="primary" 
-              onClick={() => setShowDocumentEditor(false)}
+              onClick={() => {
+                setShowDocumentEditor(false);
+                // 刷新页面以清除文档配置
+                window.location.reload();
+              }}
             >
               关闭
             </Button>
           </div>
           {editorLoading && (
             <div style={{ textAlign: 'center', padding: '50px' }}>
-              <Spin size="large" tip="文档加载中..." />
+              <Spin size="large" tip="文档加载中，请稍后..." />
             </div>
           )}
           {documentConfig && (

@@ -1,8 +1,9 @@
 package group.haite.report.doccomparatorweb.controller;
 
 import com.aspose.words.CompareOptions;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import group.haite.report.doccomparatorweb.util.DocumentComparator;
+import group.haite.report.doccomparatorweb.service.DelayedFileCleanupService;
+import group.haite.report.doccomparatorweb.service.DocumentComparisonService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -17,18 +18,57 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collections;
+import java.util.WeakHashMap;
 
+/**
+ * 文档比较控制器
+ * 提供文档上传、比较、预览等相关API接口
+ *
+ * @author ryan
+ * @version 1.0
+ * @since 2025-11-12
+ */
 @RestController
 @RequestMapping("/api/compare")
 public class DocumentComparisonController {
 
+    /**
+     * 上传文件目录，用于存储上传的文档文件
+     * 生产环境需要配置为绝对路径，避免文件上传路径泄露
+     */
     private static final String UPLOAD_DIR = "uploads/";
+    
+    /**
+     * 输出文件目录，用于存储比较生成的文档文件
+     * 生产环境需要配置为绝对路径，避免文件路径泄露
+     */
     private static final String OUTPUT_DIR = "outputs/";
 
-    private static final Map<String, String> fileMap = new ConcurrentHashMap<>();
+    /**
+     * 文件ID与文件路径映射关系
+     * 使用 WeakHashMap 避免内存泄漏，并包装为 synchronizedMap 保证线程安全
+     */
+    private static final Map<String, String> fileMap = Collections.synchronizedMap(new WeakHashMap<>());
+    
+    /**
+     * 延迟文件清理服务
+     */
+    @Autowired
+    private DelayedFileCleanupService delayedFileCleanupService;
+    
+    /**
+     * 文档比较服务
+     */
+    @Autowired
+    private DocumentComparisonService documentComparisonService;
 
-    // 添加 OPTIONS 请求处理 - 用于 CORS 预检请求
+    /**
+     * 处理CORS预检请求
+     *
+     * @param fileId 文件ID
+     * @return 响应实体
+     */
     @RequestMapping(value = "/preview/{fileId}", method = RequestMethod.OPTIONS)
     public ResponseEntity<?> handleOptions(@PathVariable String fileId) {
         HttpHeaders headers = new HttpHeaders();
@@ -39,6 +79,17 @@ public class DocumentComparisonController {
         headers.set("Access-Control-Max-Age", "3600");
         return ResponseEntity.ok().headers(headers).build();
     }
+    
+    /**
+     * 比较两个文档
+     *
+     * @param file1 待比较的第一个文件
+     * @param file2 待比较的第二个文件
+     * @param format 输出格式(PDF/DOCX/HTML)
+     * @param optionsJson 比较选项的JSON字符串
+     * @return 比较结果
+     * @throws IOException IO异常
+     */
     @PostMapping
     public ResponseEntity<?> compareDocuments(
             @RequestParam("file1") MultipartFile file1,
@@ -56,57 +107,19 @@ public class DocumentComparisonController {
         Files.createDirectories(outputPath);
 
         // 解析比较选项
-        CompareOptions options = parseCompareOptions(optionsJson);
+        CompareOptions options = documentComparisonService.parseCompareOptions(optionsJson);
 
         // 保存上传的文件
         String file1Path = saveUploadedFile(file1, uploadPath);
         String file2Path = saveUploadedFile(file2, uploadPath);
-        String outputFilePath = outputPath.resolve("comparison_result." + format.toLowerCase()).toString();
+        String outputFilePath = outputPath.resolve("对比结果." + format.toLowerCase()).toString();
 
         try {
             // 执行文档比较
-            int diffCount = DocumentComparator.compareDocuments(file1Path, file2Path, outputFilePath, options);
+            int diffCount = documentComparisonService.compareDocuments(file1Path, file2Path, outputFilePath, options);
 
             // 验证生成的文件
-            File resultFile = new File(outputFilePath);
-            if (!resultFile.exists()) {
-                throw new RuntimeException("生成的文档文件不存在");
-            }
-
-            if (resultFile.length() == 0) {
-                throw new RuntimeException("生成的文档文件为空");
-            }
-
-            System.out.println("文档生成完成 - 格式: " + format + ", 大小: " + resultFile.length() + " 字节");
-
-            // 只在 DOCX 格式时进行 DOCX 格式验证
-            if (format.equalsIgnoreCase("DOCX")) {
-                System.out.println("执行DOCX格式验证");
-
-                // 详细验证 DOCX 文件格式
-                try (FileInputStream fis = new FileInputStream(resultFile)) {
-                    byte[] header = new byte[8];
-                    int read = fis.read(header);
-
-                    System.out.println("文件头(HEX): " + bytesToHex(header));
-
-                    // DOCX 应该是 ZIP 格式 (PK header)
-                    boolean isZip = header[0] == 0x50 && header[1] == 0x4B && header[2] == 0x03 && header[3] == 0x04;
-                    System.out.println("是否是有效的ZIP格式: " + isZip);
-
-                    if (!isZip) {
-                        System.err.println("错误: 文件不是有效的DOCX格式");
-                        System.err.println("期望: PK\\x03\\x04 (ZIP格式)");
-                        System.err.println("实际: " + bytesToHex(header));
-                        throw new RuntimeException("生成的文档不是有效的DOCX格式");
-                    }
-                }
-
-                System.out.println("DOCX文档验证通过");
-            } else {
-                // 对于 HTML/PDF 格式，只进行基本验证
-                System.out.println(format + "格式文档生成成功，跳过DOCX格式验证");
-            }
+            documentComparisonService.validateGeneratedFile(outputFilePath, format);
 
             // 对于DOCX格式，返回预览URL信息
             if (format.equalsIgnoreCase("DOCX")) {
@@ -130,6 +143,7 @@ public class DocumentComparisonController {
                 System.out.println("执行其他格式处理逻辑: " + format);
 
                 // 返回比较结果文件
+                File resultFile = new File(outputFilePath);
                 InputStreamResource resource = new InputStreamResource(new FileInputStream(resultFile));
                 HttpHeaders headers = new HttpHeaders();
 
@@ -154,22 +168,21 @@ public class DocumentComparisonController {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            // 发生异常时立即清理文件
+            documentComparisonService.cleanupTempFiles(uploadPath, outputPath);
             return ResponseEntity.status(500).body("比较文档时出错: " + e.getMessage());
         } finally {
-            // 清理临时文件（可选，也可以设置定时任务清理）
-//         cleanupTempFiles(uploadPath, outputPath);
+            // 安排1分钟后删除临时文件
+            delayedFileCleanupService.scheduleCleanup(sessionId, 1, uploadPath, outputPath);
         }
     }
 
-    // 字节转十六进制的方法
-    private String bytesToHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) {
-            sb.append(String.format("%02X ", b));
-        }
-        return sb.toString().trim();
-    }
-
+    /**
+     * 预览文档
+     *
+     * @param fileId 文件ID
+     * @return 文件内容响应实体
+     */
     @GetMapping("/preview/{fileId}")
     public ResponseEntity<byte[]> previewFile(@PathVariable String fileId) {
         try {
@@ -226,46 +239,42 @@ public class DocumentComparisonController {
             return ResponseEntity.status(500).build();
         }
     }
+    
+    /**
+     * 当用户关闭预览时调用此方法清理资源
+     *
+     * @param fileId 文件ID
+     * @return 响应实体
+     */
+    @DeleteMapping("/preview/{fileId}")
+    public ResponseEntity<?> closePreview(@PathVariable String fileId) {
+        try {
+            // 从 fileMap 中移除条目
+            String filePath = fileMap.remove(fileId);
+            if (filePath != null) {
+                System.out.println("已清理预览资源: " + fileId + " -> " + filePath);
+            } else {
+                System.out.println("未找到预览资源: " + fileId);
+            }
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("清理预览资源时出错: " + e.getMessage());
+        }
+    }
 
+    /**
+     * 保存上传的文件到指定目录
+     *
+     * @param file 上传的文件
+     * @param directory 目标目录
+     * @return 文件保存路径
+     * @throws IOException IO异常
+     */
     private String saveUploadedFile(MultipartFile file, Path directory) throws IOException {
         String filename = file.getOriginalFilename();
         Path filePath = directory.resolve(filename);
         Files.copy(file.getInputStream(), filePath);
         return filePath.toString();
-    }
-
-    private void cleanupTempFiles(Path... paths) throws IOException {
-        for (Path path : paths) {
-            Files.walk(path)
-                    .sorted((a, b) -> -a.compareTo(b))
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        }
-    }
-
-    private CompareOptions parseCompareOptions(String optionsJson) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, Boolean> optionsMap = objectMapper.readValue(optionsJson, Map.class);
-
-            CompareOptions options = new CompareOptions();
-            options.setIgnoreFormatting(getBooleanOption(optionsMap, "ignoreFormatting", true));
-            options.setIgnoreHeadersAndFooters(getBooleanOption(optionsMap, "ignoreHeadersAndFooters", true));
-            options.setIgnoreCaseChanges(getBooleanOption(optionsMap, "ignoreCaseChanges", true));
-            options.setIgnoreTables(getBooleanOption(optionsMap, "ignoreTables", true));
-            options.setIgnoreFields(getBooleanOption(optionsMap, "ignoreFields", true));
-            options.setIgnoreComments(getBooleanOption(optionsMap, "ignoreComments", true));
-            options.setIgnoreTextboxes(getBooleanOption(optionsMap, "ignoreTextboxes", true));
-            options.setIgnoreFootnotes(getBooleanOption(optionsMap, "ignoreFootnotes", true));
-
-            return options;
-        } catch (Exception e) {
-            // 如果解析失败，返回默认选项
-            return DocumentComparator.createDefaultCompareOptions();
-        }
-    }
-
-    private boolean getBooleanOption(Map<String, Boolean> optionsMap, String key, boolean defaultValue) {
-        return optionsMap.containsKey(key) ? optionsMap.get(key) : defaultValue;
     }
 }

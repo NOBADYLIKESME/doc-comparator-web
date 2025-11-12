@@ -49,6 +49,15 @@ const Sidebar = () => {
 
   return (
     <Sider
+      style={{
+        position: 'fixed',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 100, // 确保侧边栏在其他内容之上
+        width: 200, // 设置侧边栏的宽度
+        overflow: 'auto', // 允许侧边栏内部内容滚动
+      }}
       breakpoint="lg"
       collapsedWidth="0"
       onBreakpoint={(broken) => {
@@ -99,7 +108,7 @@ const AppContent = () => {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sidebar />
-      <Layout>
+      <Layout style={{ marginLeft: 200 }}> {/* 添加左边距以避免内容被侧边栏遮挡 */}
         <Content style={{ margin: '0 16px 0' }}>
           <div style={{ padding: 24, minHeight: 360, background: colorBgContainer }}>
             <Routes>
