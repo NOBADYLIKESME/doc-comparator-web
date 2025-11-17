@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 前端服务
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://backend:8080
+    networks:
+      - app-network
+
+  # 后端服务
+  backend:
+    build:
+      context: ./src/doc-comparator-backend
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - UPLOAD_DIR=/app/uploads
+      - OUTPUT_DIR=/app/outputs
+    volumes:
+      - uploads_data:/app/uploads
+      - outputs_data:/app/outputs
+    networks:
+      - app-network
+
+volumes:
+  uploads_data:
+  outputs_data:
+
+networks:
+  app-network:
+    driver: bridge

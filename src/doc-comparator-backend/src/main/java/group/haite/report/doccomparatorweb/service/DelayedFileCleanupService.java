@@ -37,7 +37,7 @@ public class DelayedFileCleanupService {
     /**
      * 定时任务：每10秒检查并执行到期的删除任务
      */
-    @Scheduled(fixedRate = 10000) // 每10秒执行一次，提高响应性
+    @Scheduled(fixedRate = 600000) // 每10秒执行一次，提高响应性
     public void performScheduledCleanup() {
         LocalDateTime now = LocalDateTime.now();
         

@@ -112,7 +112,8 @@ public class DocumentComparisonController {
         // 保存上传的文件
         String file1Path = saveUploadedFile(file1, uploadPath);
         String file2Path = saveUploadedFile(file2, uploadPath);
-        String outputFilePath = outputPath.resolve("对比结果." + format.toLowerCase()).toString();
+        // 修改：使用英文文件名代替中文，避免编码问题
+        String outputFilePath = outputPath.resolve("comparison_result." + format.toLowerCase()).toString();
 
         try {
             // 执行文档比较
@@ -173,7 +174,7 @@ public class DocumentComparisonController {
             return ResponseEntity.status(500).body("比较文档时出错: " + e.getMessage());
         } finally {
             // 安排1分钟后删除临时文件
-            delayedFileCleanupService.scheduleCleanup(sessionId, 1, uploadPath, outputPath);
+            delayedFileCleanupService.scheduleCleanup(sessionId, 10, uploadPath, outputPath);
         }
     }
 
@@ -272,8 +273,18 @@ public class DocumentComparisonController {
      * @throws IOException IO异常
      */
     private String saveUploadedFile(MultipartFile file, Path directory) throws IOException {
-        String filename = file.getOriginalFilename();
-        Path filePath = directory.resolve(filename);
+        // 获取原始文件名和扩展名
+        String originalFilename = file.getOriginalFilename();
+        String fileExtension = "";
+        
+        // 提取文件扩展名
+        if (originalFilename != null && originalFilename.contains(".")) {
+            fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        
+        // 使用UUID生成安全的文件名，避免中文编码问题
+        String safeFilename = UUID.randomUUID().toString() + fileExtension;
+        Path filePath = directory.resolve(safeFilename);
         Files.copy(file.getInputStream(), filePath);
         return filePath.toString();
     }
