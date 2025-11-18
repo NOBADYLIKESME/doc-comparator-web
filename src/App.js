@@ -13,6 +13,7 @@ const AppContent = () => {
   return (
     <div style={{ padding: '24px', minHeight: '100vh' }}>
       <Routes>
+        {/* //路由配置 */}
         <Route path="/" element={<DocumentComparatorPage />} />
         <Route path="/compare" element={<DocumentComparatorPage />} />
         <Route path="/standalone-compare" element={<StandaloneDocumentComparatorPage />} />

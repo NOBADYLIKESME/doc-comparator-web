@@ -57,8 +57,8 @@
             <artifactId>ryan-words</artifactId>
             <version>20.12</version>
             
-<!--                       <scope>system</scope>-->
-<!--                       <systemPath>${project.basedir}/lib/aspose-words-20.12-jdk17-cracked.jar</systemPath>-->
+                       <scope>system</scope>
+                       <systemPath>${project.basedir}/lib/aspose-words-20.12-jdk17-cracked.jar</systemPath>
         </dependency>
 
         <!-- 其他依赖 -->
